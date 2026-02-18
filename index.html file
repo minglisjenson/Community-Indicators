@@ -1,0 +1,113 @@
+index.html
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Community Indicators – Yancey & Macon (Draft)</title>
+<style>
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:24px;line-height:1.35;}
+  header{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;}
+  h1{margin:0;font-size:20px;}
+  .controls{display:flex;gap:12px;flex-wrap:wrap;}
+  select,input{padding:8px 10px;border:1px solid #ccc;border-radius:8px;font-size:14px;}
+  .grid{margin-top:18px;display:grid;grid-template-columns: 1fr 1fr; gap:16px;}
+  @media (max-width: 900px){.grid{grid-template-columns:1fr;}}
+  .card{border:1px solid #e5e5e5;border-radius:12px;padding:14px;}
+  .card h2{margin:0 0 6px 0;font-size:16px;}
+  .meta{color:#666;font-size:12px;margin-bottom:10px;}
+  table{width:100%;border-collapse:collapse;}
+  th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #f0f0f0;font-size:13px;vertical-align:top;}
+  th{background:#fafafa;position:sticky;top:0;}
+  .badge{display:inline-block;background:#f2f7ff;border:1px solid #cfe1ff;color:#1a4fb3;padding:2px 8px;border-radius:999px;font-size:12px;margin-left:8px;}
+  .note{margin-top:16px;color:#555;font-size:12px;}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Community Indicators – <span class="badge">Draft</span></h1>
+    <div class="note">Data source: <code>yancey_macon_data.json</code> exported from the Excel workbook.</div>
+  </div>
+  <div class="controls">
+    <label>Sheet/Indicator<br><select id="sheetSelect"></select></label>
+    <label>Compare<br>
+      <select id="geoA"><option>Yancey</option><option>Macon</option></select>
+      <select id="geoB"><option>Macon</option><option>Yancey</option></select>
+    </label>
+    <label>Search fields<br><input id="searchBox" placeholder="e.g., 2023, Total Rate, 2019-2023"/></label>
+  </div>
+</header>
+
+<div class="grid">
+  <div class="card">
+    <h2 id="titleA"></h2>
+    <div class="meta" id="metaA"></div>
+    <div style="max-height:60vh; overflow:auto">
+      <table><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody id="tbodyA"></tbody></table>
+    </div>
+  </div>
+  <div class="card">
+    <h2 id="titleB"></h2>
+    <div class="meta" id="metaB"></div>
+    <div style="max-height:60vh; overflow:auto">
+      <table><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody id="tbodyB"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<script>
+async function loadData(){
+  const res = await fetch('./yancey_macon_data.json');
+  return await res.json();
+}
+
+function renderTable(tbody, data, q){
+  tbody.innerHTML='';
+  const entries = Object.entries(data||{});
+  const query = (q||'').toLowerCase().trim();
+  const filtered = query ? entries.filter(([k,v]) => (k+' '+v).toLowerCase().includes(query)) : entries;
+  for (const [k,v] of filtered){
+    const tr=document.createElement('tr');
+    const td1=document.createElement('td'); td1.textContent=k;
+    const td2=document.createElement('td'); td2.textContent=v;
+    tr.appendChild(td1); tr.appendChild(td2);
+    tbody.appendChild(tr);
+  }
+  if(filtered.length===0){
+    const tr=document.createElement('tr');
+    const td=document.createElement('td'); td.colSpan=2; td.style.color='#666'; td.textContent='No fields match your search.';
+    tr.appendChild(td); tbody.appendChild(tr);
+  }
+}
+
+function refresh(app){
+  const sheet = document.getElementById('sheetSelect').value;
+  const geoA = document.getElementById('geoA').value;
+  const geoB = document.getElementById('geoB').value;
+  const q = document.getElementById('searchBox').value;
+  const meta = (app.sheets[sheet] && app.sheets[sheet].meta) ? app.sheets[sheet].meta : '';
+  document.getElementById('titleA').textContent = geoA;
+  document.getElementById('titleB').textContent = geoB;
+  document.getElementById('metaA').textContent = meta;
+  document.getElementById('metaB').textContent = meta;
+  renderTable(document.getElementById('tbodyA'), app.sheets[sheet] && app.sheets[sheet].data ? app.sheets[sheet].data[geoA] : null, q);
+  renderTable(document.getElementById('tbodyB'), app.sheets[sheet] && app.sheets[sheet].data ? app.sheets[sheet].data[geoB] : null, q);
+}
+
+loadData().then(app=>{
+  const sheetSelect=document.getElementById('sheetSelect');
+  const sheets=Object.keys(app.sheets);
+  for(const s of sheets){
+    const opt=document.createElement('option'); opt.value=s; opt.textContent=s;
+    sheetSelect.appendChild(opt);
+  }
+  sheetSelect.value = sheets.includes('Infant Mortality') ? 'Infant Mortality' : sheets[0];
+  ['sheetSelect','geoA','geoB','searchBox'].forEach(id=>{
+    document.getElementById(id).addEventListener('input', ()=>refresh(app));
+  });
+  refresh(app);
+});
+</script>
+</body>
+</html>
